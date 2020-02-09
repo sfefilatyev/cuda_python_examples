@@ -1,3 +1,4 @@
+#!/usr/bin/python3
 # Query GPU device with PyCUDA.
 import pycuda.driver as drv
 drv.init()
@@ -11,7 +12,7 @@ for i in range(drv.Device.count()):
     print("\t Compute Capability: {}".format(compute_capability))
     print("\t Total Memory: {} megabytes".format(gpu_device.total_memory() // (1024**2)))
             
-    device_attributes_tuples = gpu_device.get_attributes().iteritems()
+    device_attributes_tuples = gpu_device.get_attributes().items()
     device_attributes = {}
 
     for k, v in device_attributes_tuples:
@@ -28,8 +29,8 @@ for i in range(drv.Device.count()):
     }
 
     print("\t ({}) Multiprocessors, ({}) CUDA Cores / Multiprocessors: {} CUDA Cores.".format(
-        num_mp, cuda_cores_per_mp, num_mp * cuda_cores_per_mp))
+        num_mp, cuda_cores_per_mp[compute_capability], num_mp * cuda_cores_per_mp[compute_capability]))
 
-    device_attributes.pop("MULTIPROCESSOR_COUNT")
+#    device_attributes.pop("MULTIPROCESSOR_COUNT")
     for k in device_attributes.keys():
         print("\t {}: {}".format(k, device_attributes[k]))
