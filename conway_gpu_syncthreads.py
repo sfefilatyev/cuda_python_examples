@@ -13,3 +13,17 @@ from pycuda import gpuarray
 from pycuda.compiler import SourceModule
 import numpy as np
 import matplotlib.pyplot as plt
+
+ker = SourceModule(
+"""
+__global__ void conway_ker(int * lattice, int iters)
+{
+    int x = _X, y = _Y;
+    for (int i = 0; i < iters; i++)
+    {
+        int n = nbrs(x, y, lattice);
+        int cell_value;
+        
+    }
+}
+""")
