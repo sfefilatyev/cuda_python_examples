@@ -13,8 +13,8 @@ import pycuda.driver as drv
 import numpy as np
 from pycuda import gpuarray
 from pycuda.compiler import SourceModule
-from time import time
 
+# Kernel for up-sweep phase.
 up_ker = SourceModule(
 """
 __global__ void up_ker(double * x, double * x_old, int k)
@@ -32,6 +32,7 @@ __global__ void up_ker(double * x, double * x_old, int k)
 
 up_gpu = up_ker.get_function("up_ker")
 
+# Python implementation of outer loop of the up-sweep phase.
 def up_sweep(x):
     x = np.float64(x)
     x_gpu = gpuarray.to_gpu(np.float64(x))
@@ -43,13 +44,14 @@ def up_sweep(x):
         if grid_size > 1:
             block_size = 32
         else:
-            blocK_size = num_threads
+            block_size = num_threads
         up_gpu(x_gpu, x_old_gpu, np.int32(k), block=(block_size, 1, 1), grid=(grid_size, 1, 1))
         x_old_gpu[:] = x_gpu[:]
 
     x_out = x_gpu.get()
     return x_out
 
+# Kernel for down-sweep phase.
 down_ker = SourceModule(
 """
 __global__ void down_ker(double * y, double * y_old, int k)
@@ -69,6 +71,7 @@ __global__ void down_ker(double * y, double * y_old, int k)
 
 down_gpu = down_ker.get_function("down_ker")
 
+# Python implementation of down-sweep phase.
 def down_sweep(y):
     y = np.float64(y)
     y[-1] = 0
@@ -87,17 +90,18 @@ def down_sweep(y):
     y_out = y_gpu.get()
     return y_out
 
+# Full implementation of the work-efficient prefix sum.
 def efficient_prefix(x):
     return down_sweep(up_sweep(x))
 
 
 if __name__ == '__main__':
-    testvec = np.random.randn(1024).astype(np.float64)
+    testvec = np.random.randn(32*1024).astype(np.float64)
 
-    outvec = efficient_prefix(testvec)
+    prefix_sum = np.roll(np.cumsum(testvec), 1)
+    prefix_sum[0] = 0
 
-    total_sum = sum(testvec)
-    total_sum_gpu = outvec[-1]
+    prefix_sum_gpu = efficient_prefix(testvec)
 
     print("Does our kernel work correctly? : {}".format(
-        np.allclose(total_sum_gpu, total_sum)))
+        np.allclose(prefix_sum_gpu, prefix_sum)))
