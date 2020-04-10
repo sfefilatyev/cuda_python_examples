@@ -1,5 +1,5 @@
 """
-Illustrate use of multiple kernels without streams.
+Illustrate use of streams for syncronization.
 """
 
 import pycuda.autoinit
@@ -37,6 +37,10 @@ mult_ker = ker.get_function('mult_ker')
 data = []
 data_gpu = []
 gpu_out = []
+streams = []
+
+for _ in range(num_arrays):
+    streams.append(drv.Stream())
 
 # Generate random arrays.
 for _ in range(num_arrays):
@@ -48,15 +52,15 @@ t_start = time()
 
 # Copy arrays to GPU.
 for k in range(num_arrays):
-    data_gpu.append(gpuarray.to_gpu(data[k]))
+    data_gpu.append(gpuarray.to_gpu_async(data[k], stream=streams[k]))
 
 # Process arrays.
 for k in range(num_arrays):
-    mult_ker(data_gpu[k], np.int32(array_len), block=(32, 1, 1), grid=(1, 1, 1))
+    mult_ker(data_gpu[k], np.int32(array_len), block=(32, 1, 1), grid=(1, 1, 1), stream=streams[k])
 
 # Copy arrays from GPU.
 for k in range(num_arrays):
-    gpu_out.append(data_gpu[k].get())
+    gpu_out.append(data_gpu[k].get_async(stream=streams[k]))
 
 t_end = time()
 
