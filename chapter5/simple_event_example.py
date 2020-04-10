@@ -51,12 +51,13 @@ start_event.record()
 # Process array.
 mult_ker(data_gpu, np.int32(array_len), block=(64, 1, 1), grid=(1, 1, 1))
 
-end_event.record()
-
 gpu_out = data_gpu.get()
+
+end_event.record()
 
 t_end = time()
 
 print("Finishing GPU operations")
 
 print('Total time: {}'.format(t_end - t_start))
+
