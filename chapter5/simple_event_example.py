@@ -39,25 +39,27 @@ data = np.random.randn(array_len).astype('float32')
 # Copy array to GPU.
 data_gpu = gpuarray.to_gpu(data)
 
-print("Starting GPU operations")
-
 start_event = drv.Event()
 end_event = drv.Event()
 
 t_start = time()
 
-start_event.record()
+print("Starting GPU operations")
 
+start_event.record()
 # Process array.
 mult_ker(data_gpu, np.int32(array_len), block=(64, 1, 1), grid=(1, 1, 1))
-
-gpu_out = data_gpu.get()
-
 end_event.record()
+end_event.synchronize()
 
-t_end = time()
+print("Has the kernel started yet? {}".format(start_event.query()))
+print("Has the kernel ended yet? {}".format(end_event.query()))
+
+print("Kernel execution time in milliseconds: {}".format(start_event.time_till(end_event)))
 
 print("Finishing GPU operations")
+
+t_end = time()
 
 print('Total time: {}'.format(t_end - t_start))
 
