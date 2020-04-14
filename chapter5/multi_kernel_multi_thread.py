@@ -57,34 +57,21 @@ data = []
 gpu_out = []
 threads = []
 
+drv.init()
+
 # Generate random arrays.
 for _ in range(num_arrays):
     data.append(np.random.randn(array_len).astype('float32'))
 
-for k in range(num_arrys):
+for k in range(num_arrays):
     threads.append(KernelLauncherThread(data[k]))
 
 for k in range(num_arrays):
     threads[k].start()
 
-
-# Copy arrays to GPU.
 for k in range(num_arrays):
-    data_gpu.append(gpuarray.to_gpu(data[k]))
-
-# Process arrays.
-for k in range(num_arrays):
-    mult_ker(data_gpu[k], np.int32(array_len), block=(32, 1, 1), grid=(1, 1, 1))
-
-# Copy arrays from GPU.
-for k in range(num_arrays):
-    gpu_out.append(data_gpu[k].get())
-
-t_end = time()
-
-print("Finishing GPU operations")
+    gpu_out.append(threads[k].join())
 
 for k in range(num_arrays):
     assert (np.allclose(gpu_out[k], data[k]))
 
-print('Total time: {}'.format(t_end - t_start))
