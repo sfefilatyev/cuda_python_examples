@@ -20,6 +20,8 @@ __device__ float rowcol_dot(float * matrix_a, float * matrix_b, int row, int col
     {
         val += matrix_a[row + k*N] * matrix_b[col*N + k];
     }
+    //if(threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 0 && blockIdx.y == 0)
+        //    printf("Dot-product loop: k value is %d, matrix_a value is %f, matrix_b is %f.\\n", k, matrix_a[ row + k*N ], matrix_b[ col*N + k]);
     return val;
 }
 
