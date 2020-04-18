@@ -26,8 +26,12 @@ __device__ float rowcol_dot(float * matrix_a, float * matrix_b, int row, int col
 // Matrix multiplication kernel that is parallelized over row/column tuples.
 __global__ void matrix_mult_ker(float * matrix_a, float * matrix_b, float * output_matrix, int N)
 {
-    int row = blockIdx.x + threadIdx.x;
-    int col = blockIdx.y + threadIdx.y;
+    // broken version:
+    // int row = blockIdx.x + threadIdx.x;
+    // int col = blockIdx.y + threadIdx.y;
+    int row = blockIdx.x * blockDim.x + threadIdx.x;
+    int col = blockIdx.y * blockDim.y + threadIdx.y;
+    printf("threadIdx.x,y: %d, %d blockIdx.x,y: %d, %d -- row is %d, col is %d.\\n", threadIdx.x, threadIdx.y, blockIdx.x, blockIdx.y, row, col);
 
     output_matrix[col + row * N] = rowcol_dot(matrix_a, matrix_b, col, row, N);
 }
