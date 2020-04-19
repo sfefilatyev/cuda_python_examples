@@ -14,14 +14,18 @@ ker = SourceModule(
 // row-column dot-product for matrix multiplication.
 __device__ float rowcol_dot(float * matrix_a, float * matrix_b, int row, int col, int N)
 {
+    printf("threadIdx.x, y: %d, %d blockIdx.x, y: %d, %d -- row is %d, col is %d, N is %d.\\n",
+        threadIdx.x, threadIdx.y, blockIdx.x, blockIdx.y, row, col, N);
     float val = 0;
 
     for (int k = 0; k < N; k++)
     {
-        val += matrix_a[row + k*N] * matrix_b[col*N + k];
+        val += matrix_a[row*N + k] * matrix_b[col + k*N];    
+        // Broken version:
+        //        val += matrix_a[row + k*N] * matrix_b[col*N + k];
+        if (threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 0 && blockIdx.y == 0)
+            printf("Dot product loop: k value is %d, matrix_a value is %f, matrix_b is %f.\\n", k, matrix_a[row + k*N], matrix_b[col*N + k]);
     }
-    //if(threadIdx.x == 0 && threadIdx.y == 0 && blockIdx.x == 0 && blockIdx.y == 0)
-        //    printf("Dot-product loop: k value is %d, matrix_a value is %f, matrix_b is %f.\\n", k, matrix_a[ row + k*N ], matrix_b[ col*N + k]);
     return val;
 }
 
@@ -35,7 +39,11 @@ __global__ void matrix_mult_ker(float * matrix_a, float * matrix_b, float * outp
     int col = blockIdx.y * blockDim.y + threadIdx.y;
     printf("threadIdx.x,y: %d, %d blockIdx.x,y: %d, %d -- row is %d, col is %d.\\n", threadIdx.x, threadIdx.y, blockIdx.x, blockIdx.y, row, col);
 
-    output_matrix[col + row * N] = rowcol_dot(matrix_a, matrix_b, col, row, N);
+    // Broken version:
+    //    output_matrix[col + row * N] = rowcol_dot(matrix_a, matrix_b, col, row, N);
+
+    // Fixed version:
+    output_matrix[col + row * N] = rowcol_dot(matrix_a, matrix_b, row, col, N);
 }
 ''')
 
