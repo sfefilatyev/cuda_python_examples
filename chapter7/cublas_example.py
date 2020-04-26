@@ -16,6 +16,6 @@ cublas_context_h = cublas.cublasCreate()
 
 cublas.cublasSaxpy(cublas_context_h, x_gpu.size, a, x_gpu.gpudata, 1, y_gpu.gpudata, 1)
 
-cublas.cublasDestroy(cublasContext)
+cublas.cublasDestroy(cublas_context_h)
 
-print("This is close to the NumPy approximation: {}", np.allclose(a * x + y, y_gpu.get()))
+print("This is close to the NumPy approximation: {}".format(np.allclose(a * x + y, y_gpu.get())))
