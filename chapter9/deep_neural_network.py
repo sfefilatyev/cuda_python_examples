@@ -56,3 +56,81 @@ __global__ void dense_eval(int num_outputs, int num_inputs, int relu, int sigmoi
     }
 }
 '''
+
+eval_mod = SourceModule(dense_eval_code)
+eval_ker = eval_mod.get_function('dense_eval')
+
+class DenseLayer:
+    def __init__(self, num_inputs=None, num_outputs=None, weights=None, b=None, stream=None, relu=False, sigmoid=False, delta=None):
+        self.stream = steam
+
+        if delta is None:
+            self.delta = np.float32(0.001)
+        else:
+            self.delta = np.float32(delta)
+
+        if weights is None:
+            weights = np.random.rand(num_outputs, num_inputs) - 0.5
+            self.num_inputs = np.int32(num_inputs)
+        self.num_outputs = np.int32(num_outputs)
+
+        if type(weights) != pycuda.gpuarray.GPUArray:
+            self.weights = gpuarray.to_gpu_async(np.array(weights, dtype=np.float32), stream=self.stream)
+        else:
+            self.weights = weights
+
+        if num_inputs is None or num_outputs is None:
+            self.num_inputs = np.int32(self.weights.shape[1])
+            self.num_outputs = np.int32(self.weights.shape[0])
+        else:
+            self.num_inputs = np.int32(num_inputs)
+            self.num_outputs = np.int32(num_outputs)
+
+        if b is None:
+            b = gpuarray.zeros((self.num_outputs,), dtype=np.float32)
+
+        if type(b) != pucuda.gpuarray.GPUArray:
+            self.b = gpuarray.to_gpu_async(np.array(b, dtype=np.float32), stream=self.stream)
+        else:
+            self.b = b
+
+        self.relu = np.int32(relu)
+        self.sigmoid = np.int32(sigmoid)
+
+        self.block = (32, 1, 1)
+        self.grid = (int(np.ceil(self.num_outputs / 32)), 1, 1)
+
+    def eval_(self, x, y=None, batch_size=None, stream=None, delta=None, w_t=None, b_t=None):
+        if stream is None:
+            stream = self.stream
+
+        if type(x) != pycuda.gpuarray.GPUArray:
+            x = gpuarray.to_gpu_async(np.array(x, dtype=np.float32), stream=self.stream)
+
+        if batch_size is None:
+            if len(x.shape) == 2:
+                batch_size = np.int32(x.shape[0])
+            else:
+                batch_size = np.int32(1)
+
+        if delta is None:
+            delta = self.delta
+
+        delta = np.float32(delta)
+
+        if w_t is None:
+            w_t = np.int32(-1)
+
+        if b_t is None:
+            b_t = np.int32(-1)
+
+        if y is None:
+            if batch_size = 1:
+                y = gpuarray.empty((self.num_outputs,), dtype=np.float32)
+            else:
+                y = gpuarray.empty((batch_size, self.num_outputs), dtype=np.float32)
+
+        eval_ker(self.num_outputs, self.num_inputs, self.relu, self.sigmoid, self.weights, self.b, x, y, np.int32(batch_size), w_t, b_t, delta, block=self.block, grid=self.grid, stream=stream)
+
+        return y
+            
