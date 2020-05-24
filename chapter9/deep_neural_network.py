@@ -178,5 +178,34 @@ mean_mod = SourceModule(SoftmaxMeanCode)
 mean_ker = mean_mod.get_function('softmax_mean')
 
 
+class SoftmaxLayer:
+    def __init__(self, num=None, stream=None):
+        self.num = np.int32(num)
+        self.stream = stream
 
+    def eval_(self, x, y=None, batch_size=None, stream=None):
+        if stream is None:
+            stream = self.stream
+
+        if type(x) != pycuda.gpuarray.GPUArray:
+            temp = np.array(x, dtype=np.float32)
+            x = gpuarray.to_gpu_async(temp, stream=stream)
+
+        if batch_size = None:
+            if len(x.shape) == 2:
+                batch_size = np.int32(x.shape[0])
+            else:
+                batch_size = np.int32(1)
+
+        if y is None:
+            if batch_size == 1:
+                y = gpuarray.empty((self.num,), dtype=np.float32)
+            else:
+                y = gpuarray.empty((batch_size, self.num), dtype=np.float32)
+
+        exp_ker(self.num, x, y, batch_size, block=(32, 1, 1), grid=(int(np.ceil(self.num / 32)), 1, 1), stream=stream)
+
+        mean_ker(self.num, y, y, batch_size, block=(32, 1, 1), grid=(int(np.ceil(batch_size / 32)), 1, 1), stream=stream)
+
+        return y
 
