@@ -302,3 +302,41 @@ class SequentialNetwork:
             else:
                 self.network_mem.append(gpuarray.empty((self.network_summary[-1][2],), dtype=np.float32))
             
+    def predict(self, x, stream=None):        
+        if stream is None:
+            stream = self.stream
+
+        if type(x) != np.ndarray:
+            temp = np.array(x, dtype=np.float32)
+            x = temp
+
+        if(x.size == self.network_mem[0].size):
+            self.network_mem[0].set_async(x, stream=stream)
+        else:
+            if x.size > self.network_mem[0].size:
+                raise Exception("Error: batch size too large for input.")
+
+        x0 = np.zeros((self.network_mem[0].size,), dtype=np.float32)
+        x0[0:x.size] = x.ravel()
+        self.network_mem[0].set_async(x0.reshape(self.network_mem[0].shape), stream=stream)
+
+        if(len(x.shape) == 2):
+            batch_size = x.shape[0]
+        else:
+            batch_size = 1
+
+        for i in range(len(self.network)):
+            self.network[i].eval_(x=self.network_mem[i], y=self.network_mem[i+1], batch_size=batch_size, stream)
+
+        y = self.network_mem[-1].get_async(stream=stream)
+
+        if len(y.shape) == 2:
+            y = y[0:batch_size, :]
+
+        return y
+
+    def partial_predict(self, layer_index=None, w_t=None, b_t=None, partial_mem=None, stream=None, batch_size=None, delta=None):
+        self.network[layer_index].eval_(x=self.network_mem[layer_index], y=partial_mem[layer_index+1], batch_size=batch_size, stream=stream, w_t=w_t, b_t=b_t, delta=delta)
+
+        for i in range(layer_index + 1, len(self.network)):
+            self.network[i].eval_(x=partial_mem[i], y=partial_mem[i+1], batch_size=batch_size, stream=stream)
