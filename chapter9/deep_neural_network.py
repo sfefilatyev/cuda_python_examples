@@ -236,3 +236,69 @@ def cross_entropy(predictions=None, ground_truth=None):
             else:
                 total_entropy += min(np.abs(np.nan_to_num(np.log(1 - p[i,j]))), MAX_ENTROPY)
     return total_entropy / p.size()
+
+
+class SequentialNetwork:
+    def __init__(self, layers=None, delta=None, stream=None, max_batch_size=32, max_streams=10, epochs=10):
+        self.network = []
+        self.network_summary = []
+        self.network_mem = []
+
+        if stream is not None:
+            self.stream = stream
+        else:
+            self.stream = drv.Stream()
+
+        if delta is None:
+            delta = 0.0001
+
+        self.delta = delta
+        self.max_batch_size = max_batch_size
+        self.max_streams = max_streams
+        self.epochs = epochs
+
+        if layers is not None:
+            for layer in layers:
+                add_layer(self, layer)
+
+    def add_layer(self, layer):
+        if layer['type'] == 'dense':
+            if len(self.network) == 0:
+                num_inputs = layer['num_inputs']
+            else:
+                num_inputs = self.network_summary[-1][2]
+
+            num_outputs = layer['num_outputs']
+            sigmoid = layer['sigmoid']
+            relu = layer['relu']
+            weights = layer['weights']
+            b = layer['bias']
+
+            self.network.append(DenseLayer(num_inputs=num_inputs, num_outputs=num_outputs, sigmoid=sigmoid, relu=relu, weights=weights b=b))
+            self.network_summary.append(('dense'), num_inputs, num_outputs))
+
+            if self.max_batch_size > 1:
+                if len(self.network_mem) == 0:
+                    self.network_mem.append(gpuarray.empty((self.max_batch_size, self.network_summary[-1][1]), dtype=np.float32))
+                    self.network_mem.append(gpuarray.empty((self.max_batch_size, self.network_summary[-1][2]), dtype=np.float32))
+            else:
+                if len(self.network_mem) == 0:
+                    self.network_mem.append(gpuarray.empty((self.network_summary[-1][1],), dtype=np.float32))
+                    self.network_mem.append(gpuarray.empty((self.network_summary[-1][2],), dtype=np.float32))
+
+        elif layer['type'] == 'softmax':
+            if len(self.network) == 0:
+                raise Exception("Error! Softmax layer can't be first!")
+
+            if self.network_summary[-1][0] != 'dense':
+                raise Exception("Error! Need a dense layer before a softmax layer!")
+
+            num = self.network_summary[-1][2]
+            self.network.append(SoftmaxLayer(num=num))
+            self.network_summary.append(('softmax', num, num))
+
+            if self.max_batch_size > 1:
+                self.network_mem.append(gpuarray.empty((self.max_batch_size, self.network_summary[-1][2]), dtype=np.float32))
+            else:
+                self.network_mem.append(gpuarray.empty((self.network_summary[-1][2],), dtype=np.float32))
+            
