@@ -340,3 +340,6 @@ class SequentialNetwork:
 
         for i in range(layer_index + 1, len(self.network)):
             self.network[i].eval_(x=partial_mem[i], y=partial_mem[i+1], batch_size=batch_size, stream=stream)
+
+    def bsgd(self, training=None, labels=None, delta=None, max_stream=None, batch_size=None, epochs=1, training_rate=0.01):
+            training_rate = np.float32(training_rate)
