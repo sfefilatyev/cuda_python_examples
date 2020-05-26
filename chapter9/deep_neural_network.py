@@ -343,3 +343,121 @@ class SequentialNetwork:
 
     def bsgd(self, training=None, labels=None, delta=None, max_stream=None, batch_size=None, epochs=1, training_rate=0.01):
             training_rate = np.float32(training_rate)
+        training_rate = np.float32(training_rate)
+
+        training = np.float32(training)
+        labels = np.float32(labels)
+
+        if(training.shape[0] != labels.shape[0]):
+            raise Exception("Number of training data points should be the same as labels!")
+
+        if max_streams is None:
+            max_streams = self.max_streams
+
+        if epochs is None:
+            epochs = self.epochs
+
+        if delta is None:
+            delta = self.delta
+
+        streams = []
+        bgd_mem = []
+
+        # Create the streams needed for training.
+        for _ in range(max_streams):
+            streams.append(drv.Stream())
+            bgd_mem.append([])
+
+        # Allocate memory for each stream.
+        for i in range(len(bgd_mem)):
+            for mem_bank in self.network_mem:
+                bgd_mem[i].append(gpuarray.empty_like(mem_bank))
+
+        num_points = training.shape[0]
+ 
+        if batch_size is None:
+            batch_size = self.max_batch_size
+ 
+        index = range(training.shape[0])
+ 
+        for k in range(epochs):
+            print('------------------------------------------------------------------------------')
+            print('Starting training epoch: {}'.format(k))
+            print('Batch size: {}, Total number of training samples: {}'.format(batch_size, num_points))
+            print('------------------------------------------------------------------------------')
+
+            all_grad = []
+            np.random.shuffle(index)
+
+            for r in range(int(np.floor(training.shape[0] / batch_size))):
+                batch_index = index[r * batch_size : (r+1) * batch_size]
+
+                batch_training = training[batch_index, :]    
+                batch_labels = labels[batch_index, :]
+
+                batch_predictions = self.predict(batch_training)
+
+                cur_entropy = cross_entropy(predictions=batch_predictions, ground_truth=batch_labels)
+                print("Entropy: {}".format(cur_entropy))
+
+                for i in range(len(self.network)):
+                    if self.network_summary[i][0] != 'dense':
+                        continue
+
+                    all_weights = Queue()
+
+                    grad_w = np.zeros((self.network[i].weights.size,), dtype=np.float32)
+                    grad_b = np.zeros((self.network[i].b.size,), dtype=np.float32)
+
+                    for w in range(self.network[i].weights.size):
+                        all_weights.put(('w', np.int32(w)))
+
+                    for b in range(self.network[i].b.size):
+                        all_weights.put(('b', np.int32(b)))
+
+                while not all_weights.empty():
+                    stream_weights = Queue()
+                    for j in range(max_streams):
+                        if all_weights.empty():
+                            break
+
+                        wb = all_weights.get()
+
+                        if wb[0] == 'w':
+                            w_t = wb[1]
+                            b_t = None
+                        elif wb[0] == 'b':
+                            b_t = wb[1]
+                            w_t = None
+
+                        stream_weights.put(wb)
+
+                        self.partial_predict(layer_index=i, w_t=w_t, b_t=b_t, partial_mem=bgd_mem[j], stream=streams[j], batch_size=batch_size, delta=delta)
+
+                    for j in range(max_streams):
+                        if stream_weights.empty():
+                            break
+                        wb = stream_weights.get()
+                        w_predictions = bgd_mem[j][-1].get_async(stream=streams[j])
+
+                        w_entropy = cross_entropy(predictions=w_predictions[:batch_size, :], ground_truths=batch_labels)
+
+                        if wb[0] == 'w':
+                            w_t = wb[1]
+                            grad_w[w_t] = -(w_entropy - cur_entropy) / delta
+                        elif wb[0] == 'b':
+                            b_t = wb[1]
+                            grad_b[b_t] = -(w_entropy - cur_entropy) / delta
+
+                all_grad.append([np.reshape(grad_w, self.network[i].weights.shape), grad_b])
+
+                for i in range(len(self.network)):
+                    if self.network_summary[i][0] == 'dense':
+                        new_weights = self.network[i].weights.get()
+                        new_weights += training_rate * all_grad[i][0]
+
+                        new_bias = self.network[i].b.get()
+                        new_bias = training_rate * all_grad[i][1]
+
+                        self.network[i].weights.set(new_weights)
+                        self.network[i].b.set(new_bias)
