@@ -2,12 +2,12 @@ from __future__ import division
 import pycuda.autoinit
 import pycuda.driver as drv
 from pycuda import gpuarray
-from pucuda.compiler import SourceModule
-from pucuda.elementwise import ElementwiseKernel
+from pycuda.compiler import SourceModule
+from pycuda.elementwise import ElementwiseKernel
 import numpy as np
-from Queue import Queue
+from queue import Queue
 import csv
-import time
+from time import time
 
 
 MAX_ENTROPY = 1
@@ -16,7 +16,7 @@ dense_eval_code='''
 #define _RELU(x) ( ((x) > 0.0f) ? (x) : 0.0f )
 #define _SIGMOID(x) ( 1.0f / (1.0f + expf(-(x)) ))
 
-__global__ void dense_eval(int num_outputs, int num_inputs, int relu, int sigmoid, float* w, float* b, float* x, float* y, int batch_size, int w_t, int_bt, float delta)
+__global__ void dense_eval(int num_outputs, int num_inputs, int relu, int sigmoid, float* w, float* b, float* x, float* y, int batch_size, int w_t, int b_t, float delta)
 {
     int i = blockDim.x * blockIdx.x + threadIdx.x;
 
@@ -65,7 +65,7 @@ eval_ker = eval_mod.get_function('dense_eval')
 
 class DenseLayer:
     def __init__(self, num_inputs=None, num_outputs=None, weights=None, b=None, stream=None, relu=False, sigmoid=False, delta=None):
-        self.stream = steam
+        self.stream = stream
 
         if delta is None:
             self.delta = np.float32(0.001)
@@ -92,7 +92,7 @@ class DenseLayer:
         if b is None:
             b = gpuarray.zeros((self.num_outputs,), dtype=np.float32)
 
-        if type(b) != pucuda.gpuarray.GPUArray:
+        if type(b) != pycuda.gpuarray.GPUArray:
             self.b = gpuarray.to_gpu_async(np.array(b, dtype=np.float32), stream=self.stream)
         else:
             self.b = b
@@ -128,7 +128,7 @@ class DenseLayer:
             b_t = np.int32(-1)
 
         if y is None:
-            if batch_size = 1:
+            if batch_size == 1:
                 y = gpuarray.empty((self.num_outputs,), dtype=np.float32)
             else:
                 y = gpuarray.empty((batch_size, self.num_outputs), dtype=np.float32)
@@ -137,7 +137,7 @@ class DenseLayer:
 
         return y
             
-SoftMaxExpCode = '''
+SoftmaxExpCode = '''
 __global__ void softmax_exp(int num, float* x, float* y, int batch_size)
 {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -146,7 +146,7 @@ __global__ void softmax_exp(int num, float* x, float* y, int batch_size)
     {
         for (int k = 0; k < batch_size; k++)
         {
-            y[num * k + 1] = expf(x[num * k + i);
+            y[num * k + 1] = expf(x[num * k + i]);
         }
     }
 }
@@ -195,7 +195,7 @@ class SoftmaxLayer:
             temp = np.array(x, dtype=np.float32)
             x = gpuarray.to_gpu_async(temp, stream=stream)
 
-        if batch_size = None:
+        if batch_size == None:
             if len(x.shape) == 2:
                 batch_size = np.int32(x.shape[0])
             else:
@@ -274,8 +274,8 @@ class SequentialNetwork:
             weights = layer['weights']
             b = layer['bias']
 
-            self.network.append(DenseLayer(num_inputs=num_inputs, num_outputs=num_outputs, sigmoid=sigmoid, relu=relu, weights=weights b=b))
-            self.network_summary.append(('dense'), num_inputs, num_outputs))
+            self.network.append(DenseLayer(num_inputs=num_inputs, num_outputs=num_outputs, sigmoid=sigmoid, relu=relu, weights=weights, b=b))
+            self.network_summary.append(('dense', num_inputs, num_outputs))
 
             if self.max_batch_size > 1:
                 if len(self.network_mem) == 0:
@@ -326,7 +326,7 @@ class SequentialNetwork:
             batch_size = 1
 
         for i in range(len(self.network)):
-            self.network[i].eval_(x=self.network_mem[i], y=self.network_mem[i+1], batch_size=batch_size, stream)
+            self.network[i].eval_(x=self.network_mem[i], y=self.network_mem[i+1], batch_size=batch_size, stream=stream)
 
         y = self.network_mem[-1].get_async(stream=stream)
 
@@ -341,8 +341,7 @@ class SequentialNetwork:
         for i in range(layer_index + 1, len(self.network)):
             self.network[i].eval_(x=partial_mem[i], y=partial_mem[i+1], batch_size=batch_size, stream=stream)
 
-    def bsgd(self, training=None, labels=None, delta=None, max_stream=None, batch_size=None, epochs=1, training_rate=0.01):
-            training_rate = np.float32(training_rate)
+    def bsgd(self, training=None, labels=None, delta=None, max_streams=None, batch_size=None, epochs=1, training_rate=0.01):
         training_rate = np.float32(training_rate)
 
         training = np.float32(training)
@@ -483,7 +482,7 @@ if __name__ == '__main__':
     iris_data = []
     iris_labels = []
 
-    with open('iris.data', 'rb') as csvfile:
+    with open('iris.data', 'r') as csvfile:
         csvreader = csv.reader(csvfile, delimiter=',')
         for row in csvreader:
             newrow = []
@@ -495,6 +494,7 @@ if __name__ == '__main__':
             iris_labels.append(to_class[row[4]])
 
     iris_len = len(iris_data)
+    print("IRIS-LEN: {}".format(iris_len))
     shuffled_index = list(range(iris_len))
     np.random.shuffle(shuffled_index)
     iris_data = np.float32(iris_data)
