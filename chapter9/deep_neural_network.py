@@ -3,7 +3,6 @@ import pycuda.autoinit
 import pycuda.driver as drv
 from pycuda import gpuarray
 from pycuda.compiler import SourceModule
-from pycuda.elementwise import ElementwiseKernel
 import numpy as np
 from queue import Queue
 import csv
@@ -32,31 +31,34 @@ __global__ void dense_eval(int num_outputs, int num_inputs, int relu, int sigmoi
             temp += (double) b[i];
             y[k * num_outputs + i] = (float) temp;
         }
-    }
 
-    if (w_t >= 0 && i == (w_t / num_inputs))
-    {
-        int j = w_t % num_inputs;
-        for(int k = 0; k < batch_size; k++)
-            y[k * num_outputs + i] += delta * x[k * num_inputs + j];
-    }
+        if (w_t >= 0 && i == (w_t / num_inputs))
+        {
+            int j = w_t % num_inputs;
+            for(int k = 0; k < batch_size; k++)
+                y[k * num_outputs + i] += delta * x[k * num_inputs + j];
+        }
 
-    if (b_t >= 0 && i == b_t)
-    {
-        for (int k = 0; k < batch_size; k++)   
-            y[k * num_outputs + i] += delta;
-    }
+        if (b_t >= 0 && i == b_t)
+        {
+            for (int k = 0; k < batch_size; k++)   
+                y[k * num_outputs + i] += delta;
+        }
 
-    if (relu > 0 || sigmoid > 0)
-    for(int k = 0; k < batch_size; k++)
-    {
-        float temp = y[k * num_outputs + i];
-        if (relu > 0)
-            temp = _RELU(temp);
-        if (sigmoid > 0)
-            temp = _SIGMOID(temp);
-        y[k * num_outputs + i] = temp;
+        if (relu > 0 || sigmoid > 0)
+        {
+            for(int k = 0; k < batch_size; k++)
+            {
+                float temp = y[k * num_outputs + i];
+                if (relu > 0)
+                    temp = _RELU(temp);
+                if (sigmoid > 0)
+                    temp = _SIGMOID(temp);
+                y[k * num_outputs + i] = temp;
+            }
+        }
     }
+    return;
 }
 '''
 
