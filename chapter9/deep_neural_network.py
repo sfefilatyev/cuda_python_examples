@@ -282,11 +282,11 @@ class SequentialNetwork:
             if self.max_batch_size > 1:
                 if len(self.network_mem) == 0:
                     self.network_mem.append(gpuarray.empty((self.max_batch_size, self.network_summary[-1][1]), dtype=np.float32))
-                    self.network_mem.append(gpuarray.empty((self.max_batch_size, self.network_summary[-1][2]), dtype=np.float32))
+                self.network_mem.append(gpuarray.empty((self.max_batch_size, self.network_summary[-1][2]), dtype=np.float32))
             else:
                 if len(self.network_mem) == 0:
                     self.network_mem.append(gpuarray.empty((self.network_summary[-1][1],), dtype=np.float32))
-                    self.network_mem.append(gpuarray.empty((self.network_summary[-1][2],), dtype=np.float32))
+                self.network_mem.append(gpuarray.empty((self.network_summary[-1][2],), dtype=np.float32))
 
         elif layer['type'] == 'softmax':
             if len(self.network) == 0:
@@ -318,9 +318,9 @@ class SequentialNetwork:
             if x.size > self.network_mem[0].size:
                 raise Exception("Error: batch size too large for input.")
 
-        x0 = np.zeros((self.network_mem[0].size,), dtype=np.float32)
-        x0[0:x.size] = x.ravel()
-        self.network_mem[0].set_async(x0.reshape(self.network_mem[0].shape), stream=stream)
+            x0 = np.zeros((self.network_mem[0].size,), dtype=np.float32)
+            x0[0:x.size] = x.ravel()
+            self.network_mem[0].set_async(x0.reshape(self.network_mem[0].shape), stream=stream)
 
         if(len(x.shape) == 2):
             batch_size = x.shape[0]
@@ -348,6 +348,9 @@ class SequentialNetwork:
 
         training = np.float32(training)
         labels = np.float32(labels)
+
+        print("Training dimensions: {}".format(training.shape))
+        print("Label shape: {}".format(labels.shape))
 
         if(training.shape[0] != labels.shape[0]):
             raise Exception("Number of training data points should be the same as labels!")
@@ -379,7 +382,7 @@ class SequentialNetwork:
         if batch_size is None:
             batch_size = self.max_batch_size
  
-        index = range(training.shape[0])
+        index = [i for i in range(training.shape[0])]
  
         for k in range(epochs):
             print('------------------------------------------------------------------------------')
@@ -392,6 +395,7 @@ class SequentialNetwork:
 
             for r in range(int(np.floor(training.shape[0] / batch_size))):
                 batch_index = index[r * batch_size : (r+1) * batch_size]
+                print(batch_index)
 
                 batch_training = training[batch_index, :]    
                 batch_labels = labels[batch_index, :]
