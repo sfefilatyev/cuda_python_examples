@@ -202,6 +202,8 @@ class SoftmaxLayer:
                 batch_size = np.int32(x.shape[0])
             else:
                 batch_size = np.int32(1)
+        else:
+            batch_size = np.int32(batch_size)
 
         if y is None:
             if batch_size == 1:
@@ -237,7 +239,7 @@ def cross_entropy(predictions=None, ground_truth=None):
                 total_entropy += min(np.abs(np.nan_to_num(np.log(p[i, j] ))), MAX_ENTROPY)
             else:
                 total_entropy += min(np.abs(np.nan_to_num(np.log(1 - p[i,j]))), MAX_ENTROPY)
-    return total_entropy / p.size()
+    return total_entropy / p.size
 
 
 class SequentialNetwork:
