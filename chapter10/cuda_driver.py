@@ -25,9 +25,9 @@ cuModuleLoad = cuda.cuModuleLoad
 cuModuleLoad.argtypes = [c_void_p, c_char_p]
 cuModuleLoad.restype = int
 
-cuCtxSyncronize = cuda.cuCtxSyncronize
-cuCtxSyncronize.argtypes = []
-cuCtxSyncronize.restype = int
+cuCtxSynchronize = cuda.cuCtxSynchronize
+cuCtxSynchronize.argtypes = []
+cuCtxSynchronize.restype = int
 
 cuModuleGetFunction = cuda.cuModuleGetFunction
 cuModuleGetFunction.argtypes = [c_void_p, c_void_p, c_char_p]
