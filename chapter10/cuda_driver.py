@@ -1,13 +1,21 @@
 from ctypes import *
 import sys
+
 if 'linux' in sys.platform:
-    cuda = CDLL('libcuda.so')
+#    cuda = CDLL('/usr/local/cuda-10.2/targets/x86_64-linux/lib/libcudart.so.10.2.152')
+    cuda = CDLL('/usr/local/cuda-10.2/targets/x86_64-linux/lib/stubs/libcuda.so')
+    print('Using /usr/local/cuda-10.2/targets/x86_64-linux/lib/stubs/libcuda.so library')
+    print(type(cuda))
+    #cuda = CDLL('libcuda.so')
 elif 'win' in sys.platform:
     cuda = CDLL('nvcuda.dll')
 
+UDA_ERRORS = {0 : 'CUDA_SUCCESS', 1 : 'CUDA_ERROR_INVALID_VALUE', 200 : 'CUDA_ERROR_INVALID_IMAGE', 201 : 'CUDA_ERROR_INVALID_CONTEXT ', 400 : 'CUDA_ERROR_INVALID_HANDLE' }
+
 cuInit = cuda.cuInit
+print(cuInit)
 cuInit.argtypes = [c_uint]
-cuInit.restypes = int
+cuInit.restype = int
 
 cuDeviceGetCount = cuda.cuDeviceGetCount
 cuDeviceGetCount.argtypes = [POINTER(c_int)]
@@ -39,10 +47,10 @@ cuMemAlloc.restype = int
 
 cuMemcpyHtoD = cuda.cuMemcpyHtoD
 cuMemcpyHtoD.argtypes = [c_void_p, c_void_p, c_size_t]
-cuMemAlloc.restype = int
+cuMemcpyHtoD.restype = int
 
 cuMemcpyDtoH = cuda.cuMemcpyDtoH
-cuMemcpyDtoH.artypes = [c_void_p, c_void_p, c_size_t]
+cuMemcpyDtoH.argtypes = [c_void_p, c_void_p, c_size_t]
 cuMemcpyDtoH.restype = int
 
 cuMemFree = cuda.cuMemFree
