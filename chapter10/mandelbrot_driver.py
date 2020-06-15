@@ -1,3 +1,5 @@
+# Run this with `sudo` to be able to run-access shared cuda library
+
 from __future__ import division
 from time import time
 import matplotlib
@@ -6,23 +8,29 @@ import numpy as np
 from cuda_driver import *
 
 def mandelbrot(breadth, low, high, max_iters, upper_bound):
-    cuInit(0)
+    ret = cuInit(0)
+
     cnt = c_int(0)
-    cuDeviceGetCount(byref(cnt))
+    ret = cuDeviceGetCount(byref(cnt))
+    print("Return value={}".format(ret))
+
     if cnt.value == 0:
         raise Exception('No GPU device found')
 
     cuDevice = c_int(0)
     cuDeviceGet(byref(cuDevice), 0)
+
     cuContext = c_void_p()
     cuCtxCreate(byref(cuContext), 0, cuDevice)
 
     cuModule = c_void_p()
-    cuModuleLoad(byref(cuModule), c_char_p('./mandelbrot.ptx'))
+    mandel_char_p = c_char_p('./mandelbrot.ptx'.encode('utf-8'))
+    cuModuleLoad(byref(cuModule), mandel_char_p)
 
     lattice = np.linspace(low, high, breadth, dtype=np.float32)
     lattice_c = lattice.ctypes.data_as(POINTER(c_float))
     lattice_gpu = c_void_p(0)
+
     graph = np.zeros(shape=(lattice.size, lattice.size), dtype=np.float32)
     cuMemAlloc(byref(lattice_gpu), c_size_t(lattice.size*sizeof(c_float)))
     graph_gpu = c_void_p(0)
@@ -31,7 +39,8 @@ def mandelbrot(breadth, low, high, max_iters, upper_bound):
     cuMemcpyHtoD(lattice_gpu, lattice_c, c_size_t(lattice.size * sizeof(c_float)))
 
     mandel_ker = c_void_p(0)
-    cuModuleGetFunction(byref(mandel_ker), cuModule, c_char_p('mandelbrot_ker'))
+    cuModuleGetFunction(byref(mandel_ker), cuModule, c_char_p('mandelbrot_ker'.encode('utf-8')))
+
     max_iters = c_int(max_iters)
     upper_bound_squared = c_float(upper_bound ** 2)
     lattice_size = c_int(lattice.size)
@@ -48,6 +57,7 @@ def mandelbrot(breadth, low, high, max_iters, upper_bound):
     cuMemFree(lattice_gpu)
     cuMemFree(graph_gpu)
     cuCtxDestroy(cuContext)
+
     return graph
 
 
