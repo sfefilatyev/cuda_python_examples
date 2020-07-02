@@ -9,12 +9,12 @@ from timeit import timeit
 SumCode='''
 __device__ void __inline__ laneid(int & id)
 {
-    asm("mov.u32 %0, %%laneid; " ; "=r"(id));
+    asm("mov.u32 %0, %%laneid; " : "=r"(id));
 }
 
 __device__ void __inline__ split64(double val, int & lo, int & hi)
 {
-    asm volatile("mov.b64 {%0 %1}, %2; ":"=r"(lo),"=r"(hi):"d"(val));
+    asm volatile("mov.b64 {%0, %1}, %2; ":"=r"(lo),"=r"(hi):"d"(val));
 }
 
 __device__ void __inline__ combine64(double &val, int lo, int hi)
@@ -27,7 +27,7 @@ __global__ void sum_ker(double* input, double* out)
     int id;
     laneid(id);
 
-    double2 vals = *reinterpret_cast<double2>(&input[(blockDim.x * blockIdx.x + threadIdx.x) * 2]);
+    double2 vals = *reinterpret_cast<double2*>(&input[(blockDim.x * blockIdx.x + threadIdx.x) * 2]);
 
     double sum_val = vals.x + vals.y;
     double temp;
@@ -40,7 +40,7 @@ __global__ void sum_ker(double* input, double* out)
 
         // shuffle to transfer data
         s1 = __shfl_down(s1, i, 32);
-        s2 = __shfl_dowm)s2. i, 32);
+        s2 = __shfl_down(s2, i, 32);
         // PTX assembly to combine
         combine64(temp, s1, s2);
         sum_val += temp;
