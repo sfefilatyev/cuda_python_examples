@@ -75,9 +75,9 @@ class DenseLayer:
             self.delta = np.float32(delta)
 
         if weights is None:
-            weights = np.random.rand(num_outputs, num_inputs) - 0.5
+            weights = (np.random.rand(num_outputs, num_inputs) - 0.5)
             self.num_inputs = np.int32(num_inputs)
-        self.num_outputs = np.int32(num_outputs)
+            self.num_outputs = np.int32(num_outputs)
 
         if type(weights) != pycuda.gpuarray.GPUArray:
             self.weights = gpuarray.to_gpu_async(np.array(weights, dtype=np.float32), stream=self.stream)
@@ -219,6 +219,7 @@ class SoftmaxLayer:
 
 
 def cross_entropy(predictions=None, ground_truth=None):
+
     if predictions is None or ground_truth is None:
         raise Exception("Error! Both predictions and groundtruth must be float32 arrays")
 
@@ -508,8 +509,9 @@ if __name__ == '__main__':
     iris_data = np.float32(iris_data)
     iris_labels = np.float32(iris_labels)
     iris_data = iris_data[shuffled_index, :]
+    iris_labels = iris_labels[shuffled_index,:]
 
-    t_len = (2*iris_len) // 3;
+    t_len = (2*iris_len) // 3
 
     iris_train = iris_data[:t_len, :]
     label_train = iris_labels[:t_len, :]
@@ -529,7 +531,7 @@ if __name__ == '__main__':
 
     t1 = time()
 
-    sn.bsgd(training=ctrain, labels=label_train, batch_size=16, max_streams=20, epochs=100, delta=0.0001, training_rate=1)
+    sn.bsgd(training=ctrain, labels=label_train, batch_size=16, max_streams=10, epochs=100, delta=0.0001, training_rate=1)
 
     training_time = time() - t1
 
@@ -540,6 +542,5 @@ if __name__ == '__main__':
         if np.argmax(sn.predict(ctest[i, :])) == np.argmax(label_test[i, :]):
             hits += 1
 
-    print('Percentage Correct Classifications: {}'.format(float(hits)))
-    ctest.shape[0]
+    print('Percentage Correct Classifications: {}'.format(float(hits))/ctest.shape[0])
     print('Total Training Time: {}'.format(training_time))
