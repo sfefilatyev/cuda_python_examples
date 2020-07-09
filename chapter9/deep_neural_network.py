@@ -506,6 +506,7 @@ if __name__ == '__main__':
     print("IRIS-LEN: {}".format(iris_len))
     shuffled_index = list(range(iris_len))
     np.random.shuffle(shuffled_index)
+    
     iris_data = np.float32(iris_data)
     iris_labels = np.float32(iris_labels)
     iris_data = iris_data[shuffled_index, :]
