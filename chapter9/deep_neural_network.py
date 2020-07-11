@@ -320,7 +320,7 @@ class SequentialNetwork:
         else:
             if x.size > self.network_mem[0].size:
                 raise Exception("Error: batch size too large for input.")
-
+            # for the very last batch which may be incomplete due to alignment issues we'll fill the rest of elements with zeros.
             x0 = np.zeros((self.network_mem[0].size,), dtype=np.float32)
             x0[0:x.size] = x.ravel()
             self.network_mem[0].set_async(x0.reshape(self.network_mem[0].shape), stream=stream)
@@ -407,7 +407,7 @@ class SequentialNetwork:
 
                 cur_entropy = cross_entropy(predictions=batch_predictions, ground_truth=batch_labels)
                 print("Entropy: {}".format(cur_entropy))
-
+                # Iterating over each weight/bias, check entropy
                 for i in range(len(self.network)):
                     if self.network_summary[i][0] != 'dense':
                         continue
@@ -423,41 +423,41 @@ class SequentialNetwork:
                     for b in range(self.network[i].b.size):
                         all_weights.put(('b', np.int32(b)))
 
-                while not all_weights.empty():
-                    stream_weights = Queue()
-                    for j in range(max_streams):
-                        if all_weights.empty():
-                            break
+                    while not all_weights.empty():
+                        stream_weights = Queue()
+                        for j in range(max_streams):
+                            if all_weights.empty():
+                                break
 
-                        wb = all_weights.get()
+                            wb = all_weights.get()
 
-                        if wb[0] == 'w':
-                            w_t = wb[1]
-                            b_t = None
-                        elif wb[0] == 'b':
-                            b_t = wb[1]
-                            w_t = None
+                            if wb[0] == 'w':
+                                w_t = wb[1]
+                                b_t = None
+                            elif wb[0] == 'b':
+                                b_t = wb[1]
+                                w_t = None
 
-                        stream_weights.put(wb)
+                            stream_weights.put(wb)
 
-                        self.partial_predict(layer_index=i, w_t=w_t, b_t=b_t, partial_mem=bgd_mem[j], stream=streams[j], batch_size=batch_size, delta=delta)
+                            self.partial_predict(layer_index=i, w_t=w_t, b_t=b_t, partial_mem=bgd_mem[j], stream=streams[j], batch_size=batch_size, delta=delta)
 
-                    for j in range(max_streams):
-                        if stream_weights.empty():
-                            break
-                        wb = stream_weights.get()
-                        w_predictions = bgd_mem[j][-1].get_async(stream=streams[j])
+                        for j in range(max_streams):
+                            if stream_weights.empty():
+                                break
+                            wb = stream_weights.get()
+                            w_predictions = bgd_mem[j][-1].get_async(stream=streams[j])
 
-                        w_entropy = cross_entropy(predictions=w_predictions[:batch_size, :], ground_truths=batch_labels)
+                            w_entropy = cross_entropy(predictions=w_predictions[:batch_size, :], ground_truth=batch_labels)
 
-                        if wb[0] == 'w':
-                            w_t = wb[1]
-                            grad_w[w_t] = -(w_entropy - cur_entropy) / delta
-                        elif wb[0] == 'b':
-                            b_t = wb[1]
-                            grad_b[b_t] = -(w_entropy - cur_entropy) / delta
+                            if wb[0] == 'w':
+                                w_t = wb[1]
+                                grad_w[w_t] = -(w_entropy - cur_entropy) / delta
+                            elif wb[0] == 'b':
+                                b_t = wb[1]
+                                grad_b[b_t] = -(w_entropy - cur_entropy) / delta
 
-                all_grad.append([np.reshape(grad_w, self.network[i].weights.shape), grad_b])
+                    all_grad.append([np.reshape(grad_w, self.network[i].weights.shape), grad_b])
 
                 for i in range(len(self.network)):
                     if self.network_summary[i][0] == 'dense':
