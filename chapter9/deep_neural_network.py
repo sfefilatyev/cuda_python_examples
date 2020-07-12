@@ -543,5 +543,5 @@ if __name__ == '__main__':
         if np.argmax(sn.predict(ctest[i, :])) == np.argmax(label_test[i, :]):
             hits += 1
 
-    print('Percentage Correct Classifications: {}'.format(float(hits))/ctest.shape[0])
+    print('Percentage Correct Classifications: {}'.format(float(hits)/ctest.shape[0]))
     print('Total Training Time: {}'.format(training_time))
