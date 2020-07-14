@@ -139,6 +139,7 @@ class DenseLayer:
 
         return y
             
+# At least "num" of threads
 SoftmaxExpCode = '''
 __global__ void softmax_exp(int num, float* x, float* y, int batch_size)
 {
@@ -157,6 +158,7 @@ __global__ void softmax_exp(int num, float* x, float* y, int batch_size)
 exp_mod = SourceModule(SoftmaxExpCode)
 exp_ker = exp_mod.get_function('softmax_exp')
 
+# At least batch_size of threads.
 SoftmaxMeanCode = '''
 __global__ void softmax_mean(int num, float* x, float* y, int batch_size)
 {
@@ -387,6 +389,7 @@ class SequentialNetwork:
  
         index = [i for i in range(training.shape[0])]
  
+        # Begin training.
         for k in range(epochs):
             print('------------------------------------------------------------------------------')
             print('Starting training epoch: {}'.format(k))
@@ -407,6 +410,7 @@ class SequentialNetwork:
 
                 cur_entropy = cross_entropy(predictions=batch_predictions, ground_truth=batch_labels)
                 print("Entropy: {}".format(cur_entropy))
+
                 # Iterating over each weight/bias, check entropy
                 for i in range(len(self.network)):
                     if self.network_summary[i][0] != 'dense':
